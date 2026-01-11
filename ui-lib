@@ -1,0 +1,1183 @@
+--[[
+    setup
+
+    * local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/chuo5/chuo5-ui-library/refs/heads/main/chuo5uilib.lua"))()
+    * local Window = Library:CreateWindow(title, bind, footerText, width, height)
+      - title: (string) self expalantory
+      - bind: (Enum.KeyCode) hide the ui (Default: V).
+      - footerText: (string) text shown at bottom of the ui itsself, not page
+    * local Tab = Window:CreateTab(name, showFooter, footerText)
+      - name: (string) Name of the tab button.
+      - showFooter: (bool) Whether to show a footer specifically inside this tab's page.
+
+    lists
+    
+    * Tab:CreateList(listTable, maxHeight, searchable, placeholder, canDelete, isMulti, callback, deleteCallback, pressable)
+      - listTable: (table) strings to display (not recommended for stuff like playerlists)
+      - maxHeight: (number) height
+      - searchable: (bool) adds a searchbar
+      - canDelete: (bool) rightclicking twice deletes a listbutton (NOT RECOMMENDED FOR SOEMTHING LIKE PLAYERLISTS)
+      - isMulti: (bool) u can seleect mutiple shite
+      - callback: (function) what u want it to do
+      - pressable: (bool) theyre buttons instead of selectables
+
+    * Tab:CreateSublist(text, listTable, searchable, placeholder, canDelete, isMulti, callback, deleteCallback, autoUpdateText, pressable)
+      - text: (string) label for the sublist and title of the popup panel.
+      - autoUpdateText: (bool) show current selection or how many you've selected
+      - pressable: (bool) theyre buttons instead of selectables
+
+    the brunt of this library
+
+    * Tab:CreateButton(text, visualIndicator, singlePress, pressedText, baseColor, flashColor, callback)
+      - visualIndicator: (bool) awesome am i ritght
+      - singlePress: (bool) u press, cant be clicked again
+
+    * Tab:CreateToggle(text, default, callback)
+      - callback: the function linked to this toggle
+
+    * Tab:CreateSlider(text, min, max, default, step, callback)
+      - step: increments to move
+
+    * Tab:CreateInput(text, placeholder, callback, getValueFunc)
+      - getValueFunc: (function) optional, this is for when you want to track shit while ALSO changing it like autoupdating walkspeed values,.. etc
+
+    * Tab:CreateColorPicker(text, defaultColor, callback)
+      - yea bro its self explaantory
+
+    * Tab:CreateKeybind(text, defaultBind, callback)
+      - self explanatory, the callback is like in the toggle stuff
+
+    visual and unnecessary stuff
+    
+    * Tab:CreateSection(text)
+      - organization and looks good
+-]]
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local TeleportService = game:GetService("TeleportService")
+
+local Library = {}
+
+local function MakeDraggable(gui, handle)
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local dragStart = UserInputService:GetMouseLocation() 
+            local startPos = gui.Position
+            
+            local connection
+            connection = UserInputService.InputChanged:Connect(function(changedInput)
+                if changedInput.UserInputType == Enum.UserInputType.MouseMovement or changedInput.UserInputType == Enum.UserInputType.Touch then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local delta = Vector2.new(mousePos.X - dragStart.X, mousePos.Y - dragStart.Y)
+                    
+                    gui.Position = UDim2.new(
+                        startPos.X.Scale, 
+                        startPos.X.Offset + delta.X, 
+                        startPos.Y.Scale, 
+                        startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            
+            local releaseConn
+            releaseConn = UserInputService.InputEnded:Connect(function(releaseInput)
+                if releaseInput.UserInputType == Enum.UserInputType.MouseButton1 or releaseInput.UserInputType == Enum.UserInputType.Touch then
+                    if connection then connection:Disconnect() end
+                    releaseConn:Disconnect()
+                end
+            end)
+        end
+    end)
+end
+
+function Library:CreateWindow(title, bind, footerText, width, height)
+    local activeDeleteButton = nil
+    local activeDeleteConn = nil
+    local w = width or 320
+    local h = height or 450
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "EssentialsV4_Blue"
+    ScreenGui.Parent = PlayerGui
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.DisplayOrder = 100
+
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if not gpe and input.KeyCode == (bind or Enum.KeyCode.V) then
+            ScreenGui.Enabled = not ScreenGui.Enabled
+        end
+    end)
+
+    local Main = Instance.new("Frame")
+    Main.Name = "Main"
+    Main.Parent = ScreenGui
+    Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Main.BorderSizePixel = 0
+    Main.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    Main.Position = UDim2.new(0.5, -(w/2), 0.5, -(h/2))
+    Main.Size = UDim2.new(0, w, 0, h)
+
+    local TopBar = Instance.new("Frame")
+    TopBar.Name = "TopBar"
+    TopBar.Parent = Main
+    TopBar.BorderSizePixel = 0
+    TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    TopBar.Size = UDim2.new(1, 0, 0, 28)
+    MakeDraggable(Main, TopBar)
+
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Parent = TopBar
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Size = UDim2.new(1, 0, 1, 0)
+    TitleLabel.Font = Enum.Font.SourceSansBold
+    TitleLabel.Text = tostring(title or "essentials"):lower()
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleLabel.TextSize = 16
+
+    local TabContainer = Instance.new("ScrollingFrame")
+    TabContainer.Name = "TabContainer"
+    TabContainer.Parent = Main
+    TabContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    TabContainer.AnchorPoint = Vector2.new(0, 0)
+    TabContainer.Position = UDim2.new(0, 0, 0, TopBar.Size.Y.Offset)
+    TabContainer.Size = UDim2.new(1, 0, 0, 32)
+    TabContainer.BorderSizePixel = 0
+    TabContainer.ScrollBarThickness = 2
+    TabContainer.ScrollBarImageColor3 = Color3.fromRGB(120, 120, 120)
+    TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    TabContainer.ScrollingEnabled = true
+    TabContainer.ScrollBarThickness = 2
+    TabContainer.ScrollingDirection = Enum.ScrollingDirection.X
+
+    local TabLayout = Instance.new("UIListLayout")
+    TabLayout.Parent = TabContainer
+    TabLayout.FillDirection = Enum.FillDirection.Horizontal
+    TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    TabLayout.Padding = UDim.new(0, 5)
+
+    TabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        local contentWidth = TabLayout.AbsoluteContentSize.X
+        local containerWidth = TabContainer.AbsoluteSize.X
+        
+        TabContainer.CanvasSize = UDim2.new(0, contentWidth, 0, 0)
+        
+        if contentWidth > containerWidth then
+            TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        else
+            TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        end
+    end)
+
+    local Pages = Instance.new("Frame")
+    Pages.Parent = Main
+    Pages.BackgroundTransparency = 1
+
+    local topOffset = TopBar.Size.Y.Offset + TabContainer.Size.Y.Offset
+    Pages.Position = UDim2.new(0, 0, 0, topOffset)
+    
+    Pages.Position = UDim2.new(0, 0, 0, 70) 
+    Pages.Size = UDim2.new(1, 0, 1, -(topOffset + 30))
+
+    local Footer = Instance.new("TextLabel")
+    Footer.Parent = Main
+    Footer.AnchorPoint = Vector2.new(0, 1)
+    Footer.Position = UDim2.new(0, 0, 1, -5) 
+    Footer.Size = UDim2.new(1, 0, 0, 20)
+    Footer.BackgroundTransparency = 1
+    Footer.Font = Enum.Font.SourceSansItalic
+    Footer.Text = footerText or "made by chuo5"
+    Footer.TextColor3 = Color3.fromRGB(120, 120, 120)
+    Footer.TextSize = 13
+
+    local Tabs = {}
+    local TabList = {}
+    local CurrentPage = nil
+    local FirstTab = true
+    local TabCount = 0
+
+    function Tabs:CreateTab(name, showFooter, footerText)
+    local ActivePopups = {}
+        TabCount = TabCount + 1
+        local TabBtn = Instance.new("TextButton")
+        TabBtn.Parent = TabContainer
+        TabBtn.BackgroundTransparency = 1
+        TabBtn.Size = UDim2.new(0, 64, 1, 0)
+        TabBtn.Font = Enum.Font.SourceSansBold
+        TabBtn.Text = name:upper()
+        TabBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
+        TabBtn.TextSize = 11
+        TabBtn.LayoutOrder = TabCount
+        TabBtn.TextXAlignment = Enum.TextXAlignment.Center 
+        TabBtn.TextYAlignment = Enum.TextYAlignment.Center
+
+        local Page = Instance.new("ScrollingFrame")
+        Page.Parent = Pages
+        Page.Size = UDim2.new(1, 0, 1, 0)
+        Page.BackgroundTransparency = 1
+        Page.Visible = false
+        Page.CanvasSize = UDim2.new(0, 0, 0, 0)
+        Page.ScrollBarThickness = 6
+        Page.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 180)
+        Page.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
+        Page.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+        Page.BorderSizePixel = 0
+
+        local PagePadding = Instance.new("UIPadding")
+        PagePadding.Parent = Page
+        PagePadding.PaddingLeft = UDim.new(0, 10)
+        PagePadding.PaddingRight = UDim.new(0, 10)
+        PagePadding.PaddingTop = UDim.new(0, 2)
+
+        local PageLayout = Instance.new("UIListLayout")
+        PageLayout.Parent = Page
+        PageLayout.Padding = UDim.new(0, 8)
+        PageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            Page.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 15)
+        end)
+
+        local TabObject = {
+            Button = TabBtn,
+            Page = Page,
+            Popups = ActivePopups
+        }
+        table.insert(TabList, TabObject)
+
+        TabBtn.MouseButton1Click:Connect(function()
+            if CurrentPage then CurrentPage.Visible = false end
+
+            for _, t in pairs(TabList) do
+                t.Page.Visible = false
+                
+                t.Button.TextColor3 = Color3.fromRGB(160, 160, 160)
+                
+                for _, popup in pairs(t.Popups) do
+                    if popup then popup.Visible = false end
+                end
+            end
+            
+            for _, v in pairs(TabContainer:GetChildren()) do
+                if v:IsA("TextButton") then v.TextColor3 = Color3.fromRGB(160, 160, 160) end
+            end
+            Page.Visible = true
+            CurrentPage = Page
+            TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end)
+
+        if FirstTab then
+            Page.Visible = true
+            CurrentPage = Page
+            TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            FirstTab = false
+        end
+
+        if showFooter then
+            local TabFooter = Instance.new("TextLabel")
+            TabFooter.Parent = Page
+            TabFooter.Name = "TabFooter"
+            TabFooter.Size = UDim2.new(1, 0, 0, 10)
+            TabFooter.LayoutOrder = 99999
+            TabFooter.BackgroundTransparency = 1
+            TabFooter.Font = Enum.Font.SourceSansItalic
+            TabFooter.Text = footerText or "made by chuo5"
+            TabFooter.TextColor3 = Color3.fromRGB(120, 120, 120)
+            TabFooter.TextSize = 13
+        end
+
+        local Elements = {}
+        local ElementCount = 0
+
+        function Elements:CreateKeybind(text, defaultBind, callback)
+            ElementCount = ElementCount + 1
+            
+            local currentBind = defaultBind or Enum.KeyCode.F
+            local listening = false
+            local active = false
+
+            local Holder = Instance.new("Frame")
+            Holder.Parent = Page
+            Holder.Size = UDim2.new(1, 0, 0, 40)
+            Holder.BackgroundTransparency = 1 
+            Holder.LayoutOrder = ElementCount
+
+            local Label = Instance.new("TextLabel")
+            Label.Parent = Holder
+            Label.Size = UDim2.new(0.5, 0, 1, 0)
+            Label.BackgroundTransparency = 1
+            Label.Text = text
+            Label.Font = Enum.Font.SourceSans
+            Label.TextColor3 = Color3.fromRGB(210, 210, 210)
+            Label.TextSize = 16
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local BindButton = Instance.new("TextButton")
+            BindButton.Parent = Holder
+            BindButton.Size = UDim2.new(0, 115, 0, 32)
+            BindButton.Position = UDim2.new(1, -120, 0.5, -16)
+            BindButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            BindButton.Text = currentBind.Name
+            BindButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            BindButton.Font = Enum.Font.SourceSans
+            BindButton.TextSize = 14
+
+            local function updateVisual()
+                BindButton.BackgroundColor3 = active and Color3.fromRGB(65, 65, 120) or Color3.fromRGB(45, 45, 45)
+            end
+
+            BindButton.MouseButton1Click:Connect(function()
+                listening = true
+                BindButton.Text = "..."
+            end)
+
+            UserInputService.InputBegan:Connect(function(input, gpe)
+                if gpe then return end
+                if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+                    currentBind = input.KeyCode
+                    BindButton.Text = currentBind.Name
+                    listening = false
+                elseif not listening and input.KeyCode == currentBind then
+                    active = not active
+                    updateVisual()
+                    callback(currentBind, active)
+                end
+            end)
+            
+            local KeybindControl = {}
+            function KeybindControl:Set(state)
+                active = state
+                updateVisual()
+            end
+
+            return KeybindControl
+        end
+
+        local function ListButton(parent, text, canDelete, isMulti, callback, deleteCallback, selectedTable, order, pressable)
+            local Btn = Instance.new("TextButton")
+            Btn.AutoButtonColor = false
+            local originalName = text
+            
+            Btn.Name = text
+            Btn.Parent = parent
+            Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            Btn.Size = UDim2.new(1, -6, 0, 32)
+            Btn.BorderSizePixel = 1
+            Btn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+            Btn.Font = Enum.Font.SourceSans
+            Btn.Text = text
+            Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Btn.TextSize = 14
+            Btn.LayoutOrder = order
+
+            local isHovering = false
+            Btn.MouseEnter:Connect(function() isHovering = true end)
+            Btn.MouseLeave:Connect(function() isHovering = false end)
+
+            local function updateVisual()
+                if activeDeleteButton == Btn then
+                    Btn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+                    Btn.Text = "Confirm Delete (Right Click)"
+                elseif not pressable and selectedTable[originalName] then
+                    Btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+                    Btn.Text = originalName
+                else
+                    Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                    Btn.Text = originalName
+                end
+            end
+
+            local function resetDelete()
+                if activeDeleteButton == Btn then
+                    activeDeleteButton = nil
+                    if activeDeleteConn then 
+                        activeDeleteConn:Disconnect()
+                        activeDeleteConn = nil 
+                    end
+                    updateVisual()
+                end
+            end
+
+            Btn.MouseButton1Click:Connect(function()
+                if activeDeleteButton ~= nil then
+                    local oldBtn = activeDeleteButton
+                    activeDeleteButton = nil 
+                    if activeDeleteConn then 
+                        activeDeleteConn:Disconnect()
+                        activeDeleteConn = nil 
+                    end
+                    
+                    if oldBtn == Btn then
+                        updateVisual()
+                        return 
+                    end
+                
+                if oldBtn.Parent then
+                    oldBtn.Text = oldBtn.Name 
+                    oldBtn.BackgroundColor3 = selectedTable[oldBtn.Name] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+                end
+            end
+            
+            if pressable then
+                Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                task.delay(0.1, function()
+                    Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                end)
+                callback(originalName, selectedTable)
+            else
+            if isMulti then
+                if selectedTable[originalName] then
+                    selectedTable[originalName] = nil 
+                else
+                    selectedTable[originalName] = true
+                end
+            else
+                if selectedTable[originalName] then
+                    selectedTable[originalName] = nil
+                else
+                    for k in pairs(selectedTable) do selectedTable[k] = nil end
+                    for _, v in pairs(parent:GetChildren()) do
+                        if v:IsA("TextButton") and v ~= Btn then 
+                            v.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                        end
+                    end
+                    selectedTable[originalName] = true
+                end
+            end
+            updateVisual()
+            callback(originalName, selectedTable)
+            end
+        end)
+
+        if canDelete then
+            Btn.MouseButton2Click:Connect(function()
+                if activeDeleteButton == Btn then
+                    if activeDeleteConn then activeDeleteConn:Disconnect() end
+                    activeDeleteButton = nil
+                    selectedTable[originalName] = nil
+                    if deleteCallback then deleteCallback(originalName) end
+                    Btn:Destroy()
+                    return
+                end
+
+                if activeDeleteButton ~= nil and activeDeleteButton ~= Btn then
+                    local oldBtn = activeDeleteButton
+                    activeDeleteButton = nil 
+                    if oldBtn.Parent then
+                        oldBtn.Text = oldBtn.Name 
+                        oldBtn.BackgroundColor3 = selectedTable[oldBtn.Name] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
+                    end
+                end
+
+                activeDeleteButton = Btn
+                updateVisual()
+
+                if activeDeleteConn then activeDeleteConn:Disconnect() end
+                activeDeleteConn = UserInputService.InputBegan:Connect(function(input, gpe)
+                    if gpe then return end
+                    local isClick = (input.UserInputType == Enum.UserInputType.MouseButton1) or 
+                                    (input.UserInputType == Enum.UserInputType.MouseButton2) or 
+                                    (input.UserInputType == Enum.UserInputType.Touch)
+                    
+                    if isClick and not isHovering then
+                        resetDelete()
+                    end
+                end)
+            end)
+        end
+
+        Btn.Destroying:Connect(function()
+            if activeDeleteButton == Btn then
+                activeDeleteButton = nil
+                if activeDeleteConn then activeDeleteConn:Disconnect() end
+            end
+        end)
+
+        return Btn
+    end
+
+        function Elements:CreateSection(text)
+            ElementCount = ElementCount + 1
+            local SectionLabel = Instance.new("TextLabel")
+            SectionLabel.Parent = Page
+            SectionLabel.BackgroundTransparency = 1
+            SectionLabel.Size = UDim2.new(1, 0, 0, 22)
+            SectionLabel.Font = Enum.Font.SourceSansBold
+            SectionLabel.Text = "—— " .. text:upper() .. " ——"
+            SectionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            SectionLabel.TextSize = 14
+            SectionLabel.LayoutOrder = ElementCount
+            
+            return SectionLabel
+        end
+
+        function Elements:CreateButton(text, visualIndicator, singlePress, pressedText, baseColor, flashColor, callback)
+            ElementCount = ElementCount + 1
+            local isPressed = false
+            
+            local Button = Instance.new("TextButton")
+            Button.Name = text
+            Button.Parent = Page
+            Button.BackgroundColor3 = baseColor or Color3.fromRGB(45, 45, 45)
+            Button.Size = UDim2.new(1, 0, 0, 32)
+            Button.BorderSizePixel = 0
+            Button.Text = text
+            Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Button.Font = Enum.Font.SourceSans
+            Button.TextSize = 14
+            Button.LayoutOrder = ElementCount
+
+            Button.MouseButton1Click:Connect(function()
+                if singlePress and isPressed then return end
+                
+                if visualIndicator and not (singlePress and isPressed) then
+                    local originalColor = Button.BackgroundColor3
+                    local originalText = Button.Text
+                    
+                    Button.BackgroundColor3 = flashColor or Color3.fromRGB(65, 65, 120)
+                    if pressedText then Button.Text = pressedText end
+                    
+                    task.delay(0.2, function()
+                        if not isPressed then
+                            Button.BackgroundColor3 = originalColor
+                            Button.Text = originalText
+                        end
+                    end)
+                end
+
+                if singlePress then
+                    isPressed = true
+                    Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                    if pressedText then
+                        Button.Text = pressedText
+                    end
+                    Button.AutoButtonColor = false
+                end
+                
+                callback()
+            end)
+            
+            return Button
+        end
+
+        function Elements:CreateToggle(text, default, callback)
+            ElementCount = ElementCount + 1
+            local enabled = default or false
+            local Tgl = Instance.new("TextButton")
+            Tgl.Parent = Page
+            Tgl.Size = UDim2.new(1, 0, 0, 32)
+            Tgl.BorderSizePixel = 1
+            Tgl.BorderColor3 = Color3.fromRGB(0, 0, 0)
+            Tgl.Font = Enum.Font.SourceSans
+            Tgl.Text = text
+            Tgl.TextSize = 14
+            Tgl.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Tgl.LayoutOrder = ElementCount
+            
+            local function Update()
+                Tgl.BackgroundColor3 = enabled and Color3.fromRGB(65, 65, 120) or Color3.fromRGB(45, 45, 45)
+            end
+            
+            Tgl.MouseButton1Click:Connect(function()
+                enabled = not enabled
+                Update()
+                callback(enabled)
+            end)
+
+            local ToggleControl = {}
+            function ToggleControl:Set(state)
+                enabled = state
+                Update()
+                callback(enabled)
+            end
+
+            Update()
+            return ToggleControl
+        end
+
+        function Elements:CreateColorPicker(text, defaultColor, callback)
+            ElementCount = ElementCount + 1
+            local ColorPickerHolder = Instance.new("Frame")
+            ColorPickerHolder.Name = "ColorPickerHolder"
+            ColorPickerHolder.Parent = Page
+            ColorPickerHolder.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            ColorPickerHolder.Size = UDim2.new(1, 0, 0, 125)
+            ColorPickerHolder.LayoutOrder = ElementCount
+
+            local Title = Instance.new("TextLabel")
+            Title.Parent = ColorPickerHolder
+            Title.Size = UDim2.new(1, 0, 0, 20)
+            Title.Position = UDim2.new(0, 5, 0, 6)
+            Title.BackgroundTransparency = 1
+            Title.Text = text:upper()
+            Title.Font = Enum.Font.SourceSansBold
+            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Title.TextSize = 19
+
+            local Preview = Instance.new("Frame")
+            Preview.Parent = ColorPickerHolder
+            Preview.Position = UDim2.new(0, 15, 0, 30)
+            Preview.Size = UDim2.new(0, 45, 0, 45)
+            Preview.BackgroundColor3 = defaultColor or Color3.fromRGB(0, 255, 150)
+            Preview.BorderSizePixel = 0
+
+            local HueSlider = Instance.new("Frame", ColorPickerHolder)
+            HueSlider.Position = UDim2.new(0, 75, 0, 45)
+            HueSlider.Size = UDim2.new(1, -85, 0, 15)
+            HueSlider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            HueSlider.BorderSizePixel = 1
+            HueSlider.BorderColor3 = Color3.fromRGB(0, 0, 0)
+
+            local HueGradient = Instance.new("UIGradient")
+            HueGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.new(1, 0, 0)),
+                ColorSequenceKeypoint.new(0.16, Color3.new(1, 1, 0)),
+                ColorSequenceKeypoint.new(0.33, Color3.new(0, 1, 0)),
+                ColorSequenceKeypoint.new(0.5, Color3.new(0, 1, 1)),
+                ColorSequenceKeypoint.new(0.66, Color3.new(0, 0, 1)),
+                ColorSequenceKeypoint.new(0.83, Color3.new(1, 0, 1)),
+                ColorSequenceKeypoint.new(1, Color3.new(1, 0, 0))
+            })
+            HueGradient.Parent = HueSlider
+
+            local HueKnob = Instance.new("Frame")
+            HueKnob.Parent = HueSlider
+            HueKnob.Size = UDim2.new(0, 10, 1, 6)
+            HueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+            HueKnob.Position = UDim2.new(0, 0, 0.5, 0)
+            HueKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            HueKnob.BorderSizePixel = 0
+
+            local RGBContainer = Instance.new("Frame")
+            RGBContainer.Parent = ColorPickerHolder
+            RGBContainer.Position = UDim2.new(0, 30, 0, 90)
+            RGBContainer.Size = UDim2.new(1, -10, 0, 20)
+            RGBContainer.BackgroundTransparency = 1
+
+            local function CreateRGBInput(label, xPos)
+                local Lbl = Instance.new("TextLabel")
+                Lbl.Parent = RGBContainer
+                Lbl.Text = label
+                Lbl.Size = UDim2.new(0, 15, 1, 0)
+                Lbl.Position = UDim2.new(0, xPos, 0, 0)
+                Lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+                Lbl.BackgroundTransparency = 1
+                Lbl.Font = Enum.Font.SourceSans
+                Lbl.TextSize = 14
+
+                local Box = Instance.new("TextBox")
+                Box.Parent = RGBContainer
+                Box.Size = UDim2.new(0, 45, 1, 0)
+                Box.Position = UDim2.new(0, xPos + 18, 0, 0)
+                Box.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                Box.BorderSizePixel = 0
+                Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+                Box.Font = Enum.Font.SourceSans
+                Box.TextSize = 14
+                return Box
+            end
+
+            local R_Box = CreateRGBInput("R", 0)
+            local G_Box = CreateRGBInput("G", 90)
+            local B_Box = CreateRGBInput("B", 180)
+
+            local function Update(color, ignoreBoxes)
+                Preview.BackgroundColor3 = color
+                if not ignoreBoxes then
+                    R_Box.Text = math.round(color.R * 255)
+                    G_Box.Text = math.round(color.G * 255)
+                    B_Box.Text = math.round(color.B * 255)
+                end
+                callback(color)
+            end
+
+            local function UpdateFromSlider(input)
+                local percent = math.clamp((input.Position.X - HueSlider.AbsolutePosition.X) / HueSlider.AbsoluteSize.X, 0, 1)
+                HueKnob.Position = UDim2.new(percent, 0, 0.5, 0)
+                Update(Color3.fromHSV(percent, 1, 1))
+            end
+
+            local dragging = false
+            HueSlider.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = true
+                    UpdateFromSlider(input)
+                end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    UpdateFromSlider(input)
+                end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+            end)
+
+            local function boxUpdated()
+                local newCol = Color3.fromRGB(tonumber(R_Box.Text) or 0, tonumber(G_Box.Text) or 0, tonumber(B_Box.Text) or 0)
+                local h, s, v = newCol:ToHSV()
+                HueKnob.Position = UDim2.new(h, 0, 0.5, 0)
+                Update(newCol, true)
+            end
+
+            R_Box.FocusLost:Connect(boxUpdated)
+            G_Box.FocusLost:Connect(boxUpdated)
+            B_Box.FocusLost:Connect(boxUpdated)
+
+            Update(Preview.BackgroundColor3)
+        end
+
+        function Elements:CreateInput(text, placeholder, callback, getValueFunc)
+            ElementCount = ElementCount + 1
+            local Holder = Instance.new("Frame")
+            Holder.Parent = Page
+            Holder.Size = UDim2.new(1, 0, 0, 40)
+            Holder.BackgroundTransparency = 1 
+            Holder.LayoutOrder = ElementCount
+
+            local Label = Instance.new("TextLabel")
+            Label.Parent = Holder
+            Label.Size = UDim2.new(0.5, 0, 1, 0)
+            Label.BackgroundTransparency = 1
+            Label.Text = text
+            Label.Font = Enum.Font.SourceSans
+            Label.TextColor3 = Color3.fromRGB(210, 210, 210)
+            Label.TextSize = 16
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local Input = Instance.new("TextBox")
+            Input.Parent = Holder
+            Input.Size = UDim2.new(0, 120, 0, 32)
+            Input.Position = UDim2.new(1, -120, 0.5, -16)
+            Input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            Input.BorderSizePixel = 1
+            Input.BorderColor3 = Color3.fromRGB(45, 45, 45)
+            Input.PlaceholderText = ""
+            Input.Text = placeholder or ""
+            Input.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Input.Font = Enum.Font.SourceSans
+            Input.TextSize = 15
+
+            if type(getValueFunc) == "function" then -- note to self: dont touch this ever again
+                task.spawn(function()
+                    while task.wait(0.1) do -- still feels responsive
+                        if not Input or not Input.Parent then break end 
+                        
+                        if not Input:IsFocused() then
+                            local val = tostring(getValueFunc())
+                            if Input.Text ~= val then
+                                Input.Text = val
+                            end
+                        end
+                    end
+                end)
+            end
+
+            Input.FocusLost:Connect(function(enterPressed) 
+                callback(Input.Text, enterPressed)
+            end)
+
+            local InputObj = {}
+            function InputObj:Set(val)
+                Input.Text = tostring(val)
+            end
+            return InputObj
+        end
+
+        function Elements:CreateSlider(text, min, max, default, step, callback)
+            ElementCount = ElementCount + 1
+            local Value = default or min
+            local Step = step or 1
+            local sliding = false 
+
+            local SliderHolder = Instance.new("Frame")
+            SliderHolder.Parent = Page
+            SliderHolder.Size = UDim2.new(1, 0, 0, 40)
+            SliderHolder.BackgroundTransparency = 1
+            SliderHolder.LayoutOrder = ElementCount
+
+            local Label = Instance.new("TextLabel")
+            Label.Parent = SliderHolder
+            Label.Size = UDim2.new(0.4, 0, 1, 0)
+            Label.BackgroundTransparency = 1
+            Label.Text = string.format("%s: %s", text, tostring(Value))
+            Label.Font = Enum.Font.SourceSans
+            Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Label.TextSize = 14
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local Tray = Instance.new("Frame")
+            Tray.Parent = SliderHolder
+            Tray.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            Tray.BorderSizePixel = 0
+            Tray.Position = UDim2.new(0.4, 5, 0.5, -4)
+            Tray.Size = UDim2.new(0.6, -10, 0, 8)
+
+            local Fill = Instance.new("Frame")
+            Fill.Parent = Tray
+            Fill.BackgroundColor3 = Color3.fromRGB(65, 65, 120)
+            Fill.BorderSizePixel = 0
+            Fill.Size = UDim2.new((Value - min) / (max - min), 0, 1, 0)
+
+            local Knob = Instance.new("Frame")
+            Knob.Name = "Knob"
+            Knob.Parent = Fill
+            Knob.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+            Knob.BorderSizePixel = 0
+            Knob.AnchorPoint = Vector2.new(0.5, 0.5)
+            Knob.Position = UDim2.new(1, 0, 0.5, 0)
+            Knob.Size = UDim2.new(0, 12, 0, 22)
+
+            local HitArea = Instance.new("Frame")
+            HitArea.Name = "HitArea"
+            HitArea.Parent = Knob
+            HitArea.BackgroundTransparency = 1
+            HitArea.Size = UDim2.new(0, 40, 0, 45)
+            HitArea.Position = UDim2.new(0.5, 0, 0.5, 0)
+            HitArea.AnchorPoint = Vector2.new(0.5, 0.5)
+
+            local function UpdateSlider(input)
+                local relativeX = input.Position.X - Tray.AbsolutePosition.X
+                local pos = math.clamp(relativeX / Tray.AbsoluteSize.X, 0, 1)
+                
+                local rawValue = min + (max - min) * pos
+                Value = math.floor(rawValue / Step + 0.5) * Step
+                Value = math.clamp(Value, min, max)
+                
+                Fill.Size = UDim2.new((Value - min) / (max - min), 0, 1, 0)
+                Label.Text = string.format("%s: %s", text, tostring(Value))
+                callback(Value)
+            end
+
+            HitArea.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    sliding = true
+                    UpdateSlider(input)
+                end
+            end)
+
+            SliderHolder.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    sliding = true
+                    UpdateSlider(input)
+                end
+            end)
+
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    sliding = false
+                end
+            end)
+
+            UserInputService.InputChanged:Connect(function(input)
+                if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    UpdateSlider(input)
+                end
+            end)
+        end
+
+            function Elements:CreateList(listTable, maxHeight, searchable, placeholder, canDelete, isMulti, callback, deleteCallback, pressable)
+                ElementCount = ElementCount + 1
+                local selectedTable = {}
+                local holderHeight = maxHeight or 150
+                
+                local Holder = Instance.new("Frame")
+                Holder.Name = "ListHolder"
+                Holder.Parent = Page
+                Holder.Size = UDim2.new(1, 0, 0, searchable and (holderHeight + 35) or holderHeight)
+                Holder.BackgroundTransparency = 1
+                Holder.BorderSizePixel = 0
+                Holder.LayoutOrder = ElementCount
+
+                if searchable then
+                    local SearchBox = Instance.new("TextBox")
+                    SearchBox.Name = "SearchBox"
+                    SearchBox.Parent = Holder
+                    SearchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                    SearchBox.Size = UDim2.new(1, 0, 0, 30)
+                    SearchBox.PlaceholderText = placeholder or "Search..."
+                    SearchBox.Text = ""
+                    SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    SearchBox.Font = Enum.Font.SourceSans
+                    SearchBox.TextSize = 16
+                    
+                    local Padding = Instance.new("UIPadding")
+                    Padding.Parent = SearchBox
+                    Padding.PaddingLeft = UDim.new(0, 8)
+                    Padding.PaddingRight = UDim.new(0, 8)
+                    
+                    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+                        local filter = SearchBox.Text:lower()
+                        for _, btn in pairs(Holder:FindFirstChild("ListContainer"):GetChildren()) do 
+                            if btn:IsA("TextButton") then 
+                                btn.Visible = string.find(btn.Text:lower(), filter) ~= nil 
+                            end 
+                        end
+                    end)
+                end
+
+                local ListContainer = Instance.new("ScrollingFrame")
+                ListContainer.Name = "ListContainer"
+                ListContainer.Parent = Holder
+                ListContainer.Position = UDim2.new(0, 0, 0, searchable and 35 or 0)
+                ListContainer.Size = UDim2.new(1, 0, 1, searchable and -35 or 0)
+                ListContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+                ListContainer.BorderSizePixel = 0
+                ListContainer.ScrollBarThickness = 4 
+                ListContainer.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 180)
+                ListContainer.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+                
+                local LL = Instance.new("UIListLayout")
+                LL.Parent = ListContainer
+                LL.SortOrder = Enum.SortOrder.LayoutOrder
+                LL.Padding = UDim.new(0, 2)
+                LL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+                
+                local UIP = Instance.new("UIPadding")
+                UIP.Parent = ListContainer
+                UIP.PaddingLeft = UDim.new(0, 2)
+                UIP.PaddingRight = UDim.new(0, 2)
+
+                LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() 
+                    ListContainer.CanvasSize = UDim2.new(0, 0, 0, LL.AbsoluteContentSize.Y) 
+                end)
+
+                local function internalCallback(selectedName, currentTable)
+                    if callback then
+                        task.spawn(function()
+                            local success, err = pcall(function()
+                                callback(selectedName, currentTable)
+                            end)
+                            if not success then
+                                warn("CreateList Callback Error: " .. err)
+                            end
+                        end)
+                    end
+                end
+                
+                local function NewListButton(...)
+                    local btn = ListButton(...)
+                    btn.Size = UDim2.new(1, 0, 0, 32)
+                    return btn
+                end
+
+                local btnOrder = 0
+                local function populate(items)
+                    for _, itemName in pairs(items) do 
+                        btnOrder = btnOrder + 1
+                        local btn = NewListButton(ListContainer, itemName, canDelete, isMulti, internalCallback, deleteCallback, selectedTable, btnOrder, pressable) 
+
+                        if not pressable and selectedTable[itemName] then
+                            btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+                        end
+                    end
+                end
+
+                populate(listTable)
+                
+                local ListObj = {}
+                ListObj.SelectedTable = selectedTable
+
+                function ListObj:Update(newTable)
+                    for _, v in pairs(ListContainer:GetChildren()) do 
+                        if v:IsA("TextButton") then v:Destroy() end 
+                    end
+                    
+                    local validItems = {}
+                    for _, item in pairs(newTable) do
+                        validItems[item] = true
+                    end
+                    
+                    for itemName in pairs(selectedTable) do
+                        if not validItems[itemName] then
+                            selectedTable[itemName] = nil
+                        end
+                    end
+
+                    btnOrder = 0
+                    populate(newTable)
+                end
+                
+                return ListObj
+            end
+
+        function Elements:CreateSublist(text, listTable, searchable, placeholder, canDelete, isMulti, callback, deleteCallback, autoUpdateText, pressable)
+            ElementCount = ElementCount + 1
+            local selectedTable = {}
+            local sublistActive = false
+            
+            local Holder = Instance.new("Frame")
+            Holder.Parent = Page
+            Holder.Size = UDim2.new(1, 0, 0, 40)
+            Holder.BackgroundTransparency = 1 
+            Holder.LayoutOrder = ElementCount
+
+            local Label = Instance.new("TextLabel")
+            Label.Parent = Holder
+            Label.Size = UDim2.new(1, -125, 1, 0)
+            Label.TextTruncate = Enum.TextTruncate.AtEnd
+            Label.TextScaled = true
+            local SizeConstraint = Instance.new("UITextSizeConstraint")
+            SizeConstraint.Parent = Label
+            SizeConstraint.MaxTextSize = 16
+            SizeConstraint.MinTextSize = 8
+            Label.BackgroundTransparency = 1
+            Label.Text = text
+            Label.Font = Enum.Font.SourceSans
+            Label.TextColor3 = Color3.fromRGB(210, 210, 210)
+            Label.TextSize = 16
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local function internalCallback(selectedName, currentTable)
+                if autoUpdateText then
+                    if isMulti then
+                        local count = 0
+                        for _ in pairs(currentTable) do count = count + 1 end
+                        Label.Text = text .. " (" .. count .. ")"
+                    else
+                        if currentTable[selectedName] then
+                            Label.Text = text .. ": " .. selectedName
+                        else
+                            Label.Text = text
+                        end
+                    end
+                end
+                callback(selectedName, currentTable)
+            end
+
+            local OpenBtn = Instance.new("TextButton")
+            OpenBtn.Parent = Holder
+            OpenBtn.Size = UDim2.new(0, 120, 0, 32)
+            OpenBtn.Position = UDim2.new(1, -120, 0.5, -16)
+            OpenBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            OpenBtn.BorderSizePixel = 1
+            OpenBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+            OpenBtn.Text = "Manage >"
+            OpenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            OpenBtn.Font = Enum.Font.SourceSans
+            OpenBtn.TextSize = 14
+
+            local SubPanel = Instance.new("Frame")
+            SubPanel.Name = text .. "_Sublist"
+            SubPanel.Parent = Main
+            SubPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            SubPanel.BorderSizePixel = 1
+            SubPanel.BorderColor3 = Color3.fromRGB(0, 0, 0)
+            SubPanel.Position = UDim2.new(1, 5, 0, 0)
+            SubPanel.Size = UDim2.new(0, 200, 0, 300)
+            SubPanel.Visible = false
+            
+            table.insert(ActivePopups, SubPanel)
+
+            SubPanel:GetPropertyChangedSignal("Visible"):Connect(function()
+                if not SubPanel.Visible then
+                    sublistActive = false
+                    OpenBtn.Text = "Manage >"
+                    OpenBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                end
+            end)
+
+            local SubTitle = Instance.new("TextLabel")
+            SubTitle.Parent = SubPanel
+            SubTitle.Size = UDim2.new(1, 0, 0, 25)
+            SubTitle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            SubTitle.Text = text:upper()
+            SubTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+            SubTitle.Font = Enum.Font.SourceSansBold
+            SubTitle.TextSize = 13
+
+            local ListContainer = Instance.new("ScrollingFrame")
+            ListContainer.Name = "ListContainer"
+            ListContainer.Parent = SubPanel
+            ListContainer.Position = UDim2.new(0, 0, 0, searchable and 55 or 25)
+            ListContainer.Size = UDim2.new(1, 0, 1, searchable and -55 or -25)
+            ListContainer.BackgroundTransparency = 1
+            ListContainer.BorderSizePixel = 0
+            ListContainer.ScrollBarThickness = 3
+
+            local LL = Instance.new("UIListLayout")
+            LL.Parent = ListContainer
+            LL.SortOrder = Enum.SortOrder.LayoutOrder
+            LL.Padding = UDim.new(0, 2)
+
+            LL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() 
+                ListContainer.CanvasSize = UDim2.new(0, 0, 0, LL.AbsoluteContentSize.Y) 
+            end)
+
+            if searchable then
+                local SBox = Instance.new("TextBox")
+                SBox.Parent = SubPanel
+                SBox.Position = UDim2.new(0, 5, 0, 28)
+                SBox.Size = UDim2.new(1, -10, 0, 22)
+                SBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                SBox.PlaceholderText = placeholder or "Search..."
+                SBox.Text = ""
+                SBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+                SBox.Font = Enum.Font.SourceSans
+                SBox.TextSize = 12
+
+                SBox:GetPropertyChangedSignal("Text"):Connect(function()
+                    local filter = SBox.Text:lower()
+                    for _, btn in pairs(ListContainer:GetChildren()) do 
+                        if btn:IsA("TextButton") then 
+                            btn.Visible = string.find(btn.Text:lower(), filter) ~= nil 
+                        end 
+                    end
+                end)
+            end
+
+            local btnOrder = 0
+            local function populate(items)
+                for _, itemName in pairs(items) do 
+                    btnOrder = btnOrder + 1
+                    local btn = ListButton(ListContainer, itemName, canDelete, isMulti, internalCallback, deleteCallback, selectedTable, btnOrder, pressable) 
+                    btn.Size = UDim2.new(1, -4, 0, 28)
+                    if not pressable and selectedTable[itemName] then btn.BackgroundColor3 = Color3.fromRGB(0, 150, 0) end
+                end
+            end
+
+            populate(listTable)
+
+            OpenBtn.MouseButton1Click:Connect(function()
+                sublistActive = not sublistActive
+                SubPanel.Visible = sublistActive
+                OpenBtn.Text = sublistActive and "Close <" or "Manage >"
+                OpenBtn.BackgroundColor3 = sublistActive and Color3.fromRGB(65, 65, 120) or Color3.fromRGB(45, 45, 45)
+            end)
+
+            local SubListObj = {}
+            SubListObj.SelectedTable = selectedTable
+            
+            function SubListObj:Update(newTable)
+
+                for _, v in pairs(ListContainer:GetChildren()) do 
+                    if v:IsA("TextButton") then v:Destroy() end 
+                end
+
+                local validItems = {}
+                for _, item in pairs(newTable) do
+                    validItems[item] = true
+                end
+
+                for itemName in pairs(selectedTable) do
+                    if not validItems[itemName] then
+                        selectedTable[itemName] = nil
+                    end
+                end
+
+                btnOrder = 0
+                populate(newTable)
+            end
+
+            return SubListObj
+        end
+
+        return Elements
+    end
+    return Tabs
+end
+
+return Library
