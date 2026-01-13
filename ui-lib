@@ -14,23 +14,23 @@
     
     * Tab:CreateList(listTable, maxHeight, searchable, placeholder, canDelete, isMulti, callback, deleteCallback, pressable)
       - listTable: (table) strings to display (not recommended for stuff like playerlists)
-      - maxHeight: (number) height
-      - searchable: (bool) adds a searchbar
-      - canDelete: (bool) rightclicking twice deletes a listbutton (NOT RECOMMENDED FOR SOEMTHING LIKE PLAYERLISTS)
-      - isMulti: (bool) u can seleect mutiple shite
-      - callback: (function) what u want it to do
-      - pressable: (bool) theyre buttons instead of selectables
+      - maxHeight: (number) Height
+      - searchable: (bool) Adds a searchbar
+      - canDelete: (bool) Rightclicking twice deletes a listbutton (NOT RECOMMENDED FOR SOEMTHING LIKE PLAYERLISTS)
+      - isMulti: (bool) You can select multiple buttons
+      - callback: (function) The Function
+      - pressable: (bool) The Listbuttons become Normal buttons you can press
 
     * Tab:CreateSublist(text, listTable, searchable, placeholder, canDelete, isMulti, callback, deleteCallback, autoUpdateText, pressable)
       - text: (string) label for the sublist and title of the popup panel.
       - autoUpdateText: (bool) show current selection or how many you've selected
       - pressable: (bool) theyre buttons instead of selectables
 
-    the brunt of this library
+    The Creators
 
     * Tab:CreateButton(text, visualIndicator, singlePress, pressedText, baseColor, flashColor, callback)
-      - visualIndicator: (bool) awesome am i ritght
-      - singlePress: (bool) u press, cant be clicked again
+      - visualIndicator: (bool) Not needed, set to false if you want
+      - singlePress: (bool) You press this and it's locked forever until you rejoin
 
     * Tab:CreateToggle(text, default, callback)
       - callback: the function linked to this toggle
@@ -39,13 +39,13 @@
       - step: increments to move
 
     * Tab:CreateInput(text, placeholder, callback, getValueFunc)
-      - getValueFunc: (function) optional, this is for when you want to track shit while ALSO changing it like autoupdating walkspeed values,.. etc
+      - getValueFunc: (function) optional
 
     * Tab:CreateColorPicker(text, defaultColor, callback)
-      - yea bro its self explaantory
+      - self explanatory
 
     * Tab:CreateKeybind(text, defaultBind, callback)
-      - self explanatory, the callback is like in the toggle stuff
+      - self explanatory
 
     visual and unnecessary stuff
     
