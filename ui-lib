@@ -1,7 +1,7 @@
 --[[
     setup
 
-    * local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/chuo5/chuo5-ui-library/refs/heads/main/chuo5uilib.lua"))()
+    * local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/chuo5/chuo5-simple-ui-library/refs/heads/main/ui-lib"))()
     * local Window = Library:CreateWindow(title, bind, footerText, width, height)
       - title: (string) self expalantory
       - bind: (Enum.KeyCode) hide the ui (Default: V).
