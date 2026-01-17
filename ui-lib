@@ -185,11 +185,13 @@ function Library:CreateWindow(title, bind, footerText, width, height)
     local Footer = Instance.new("TextLabel")
     Footer.Parent = Main
     Footer.AnchorPoint = Vector2.new(0, 1)
-    Footer.Position = UDim2.new(0, 0, 1, -4) 
+    Footer.Position = UDim2.new(0, 0, 1, -5) 
     Footer.Size = UDim2.new(1, 0, 0, 20)
     Footer.BackgroundTransparency = 1
     Footer.Font = Enum.Font.SourceSansItalic
     Footer.Text = footerText or "made by chuo5"
+    Footer.TextXAlignment = Enum.TextXAlignment.Center
+    Footer.TextYAlignment = Enum.TextYAlignment.Center
     Footer.TextColor3 = Color3.fromRGB(120, 120, 120)
     Footer.TextSize = 13
 
