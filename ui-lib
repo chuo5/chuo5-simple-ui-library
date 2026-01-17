@@ -7,8 +7,8 @@
       - bind: (Enum.KeyCode) hide the ui (Default: V).
       - footerText: (string) text shown at bottom of the ui itsself, not page
     * local Tab = Window:CreateTab(name, showFooter, footerText)
-      - name: (string) Name of the tab button.
-      - showFooter: (bool) Whether to show a footer specifically inside this tab's page.
+      - name: (string) name, ex: Settings
+      - showFooter: (bool) this is not needed but can be used as a footstool (then just dont use it)
 
     lists
     
@@ -29,7 +29,7 @@
     The Creators
 
     * Tab:CreateButton(text, visualIndicator, singlePress, pressedText, baseColor, flashColor, callback)
-      - visualIndicator: (bool) Not needed, set to false if you want
+      - visualIndicator: (bool) unnecessary unless the function is something subtle that needs visual indicators for the user to tell if something has happened
       - singlePress: (bool) You press this and it's locked forever until you rejoin
 
     * Tab:CreateToggle(text, default, callback)
@@ -39,7 +39,7 @@
       - step: increments to move
 
     * Tab:CreateInput(text, placeholder, callback, getValueFunc)
-      - getValueFunc: (function) optional
+      - getValueFunc: (function) optional, this is to track X whilst changing it
 
     * Tab:CreateColorPicker(text, defaultColor, callback)
       - self explanatory
@@ -185,7 +185,7 @@ function Library:CreateWindow(title, bind, footerText, width, height)
     local Footer = Instance.new("TextLabel")
     Footer.Parent = Main
     Footer.AnchorPoint = Vector2.new(0, 1)
-    Footer.Position = UDim2.new(0, 0, 1, -5) 
+    Footer.Position = UDim2.new(0, 0, 1, -4.5) 
     Footer.Size = UDim2.new(1, 0, 0, 20)
     Footer.BackgroundTransparency = 1
     Footer.Font = Enum.Font.SourceSansItalic
