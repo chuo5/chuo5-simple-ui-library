@@ -847,8 +847,14 @@ function Library:CreateWindow(title, bind, footerText, width, height)
                 Value = math.floor(rawValue / Step + 0.5) * Step
                 Value = math.clamp(Value, min, max)
                 
+                local displayValue = Value
+                if Step < 1 then
+                    local precision = math.ceil(math.abs(math.log10(Step)))
+                    displayValue = string.format("%." .. precision .. "f", Value) -- I hate those stupid numbers, begone 0.30000000004, I dislike you the most
+                end
+                
                 Fill.Size = UDim2.new((Value - min) / (max - min), 0, 1, 0)
-                Label.Text = string.format("%s: %s", text, tostring(Value))
+                Label.Text = string.format("%s: %s", text, tostring(displayValue))
                 callback(Value)
             end
 
