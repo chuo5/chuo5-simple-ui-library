@@ -984,39 +984,28 @@ function Library:CreateWindow(title, bind, footerText, width, height)
 
                 populate(listTable)
                 
+                local ListObj = {}
+                ListObj.SelectedTable = selectedTable
+
                 function ListObj:Update(newTable)
-                local currentFilter = ""
-                local searchBox = Holder:FindFirstChild("SearchBox")
-                if searchBox then
-                    currentFilter = searchBox.Text:lower()
-                end
-            
-                for _, v in pairs(ListContainer:GetChildren()) do 
-                    if v:IsA("TextButton") then v:Destroy() end 
-                end
-                
-                local validItems = {}
-                for _, item in pairs(newTable) do
-                    validItems[item] = true
-                end
-                
-                for itemName in pairs(selectedTable) do
-                    if not validItems[itemName] then
-                        selectedTable[itemName] = nil
+                    for _, v in pairs(ListContainer:GetChildren()) do 
+                        if v:IsA("TextButton") then v:Destroy() end 
                     end
-                end
-            
-                btnOrder = 0
-                populate(newTable)
-            
-                if currentFilter ~= "" then
-                    for _, btn in pairs(ListContainer:GetChildren()) do 
-                        if btn:IsA("TextButton") then 
-                            btn.Visible = string.find(btn.Text:lower(), currentFilter) ~= nil 
-                        end 
+                    
+                    local validItems = {}
+                    for _, item in pairs(newTable) do
+                        validItems[item] = true
                     end
+                    
+                    for itemName in pairs(selectedTable) do
+                        if not validItems[itemName] then
+                            selectedTable[itemName] = nil
+                        end
+                    end
+
+                    btnOrder = 0
+                    populate(newTable)
                 end
-            end
                 
                 return ListObj
             end
